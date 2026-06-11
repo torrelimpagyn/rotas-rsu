@@ -150,7 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 // ══════════════════════════════════════════════
 // ▶  CONFIGURAÇÃO — altere apenas aqui
 // ══════════════════════════════════════════════
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2hOzLexAFbgVbDgEoVMUvuBeVhfbcQCMitDPFoH9M8P4e0rMriNqwEiRx9Z31u0buZqO4udUkbsAL/pub?gid=0&single=true&output=csv";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwIZlvSHKztsCMG_FWVASX9ONiKFMcitckdFEa8iuJLooe_vXkkjUBiex8n_jmN3IKW/exec";
 
 const PONTOS = {
   "todos": "Todos",
@@ -215,7 +215,7 @@ function renderResumo(lista) {
 function renderLista() {
   const lista = pontoAtivo === "todos"
     ? rotas
-    : rotas.filter(r => (r.ponto_apoio || "").trim().toUpperCase() === pontoAtivo);
+    : rotas.filter(r => (r.ponto_apoio || r.ponto_apoio || "").toString().trim().toUpperCase() === pontoAtivo);
 
   renderResumo(lista);
   document.getElementById("secao-label").textContent =
@@ -324,52 +324,28 @@ function parseCSV(text) {
 
 async function buscarDados() {
   setSyncState("loading", "atualizando…");
-
-  if (!SHEET_CSV_URL || SHEET_CSV_URL === "COLE_AQUI_O_LINK_CSV_DO_GOOGLE_SHEETS") {
-    rotas = DADOS_EXEMPLO;
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const json = await resp.json();
+    if (!Array.isArray(json) || json.length === 0) throw new Error("vazio");
+    rotas = json;
     renderLista();
-    setSyncState("ok", "modo demo");
-    document.getElementById("ultima-sync").textContent = "Modo demonstração — cole o link CSV para dados reais";
+    setSyncState("ok", "atualizado");
+    const agora = new Date();
+    document.getElementById("ultima-sync").textContent =
+      "Última atualização: " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
     resetCountdown();
-    return;
+  } catch(e) {
+    setSyncState("erro", "erro");
+    document.getElementById("lista-rotas").innerHTML = `
+      <div class="erro-msg">
+        ⚠️ <b>Não foi possível carregar os dados.</b><br><br>
+        Erro: ${e.message}<br><br>
+        Verifique se o Apps Script está implantado como <b>"Qualquer pessoa"</b>.<br><br>
+        <a href="javascript:buscarDados()" style="color:#2d6a4f;font-weight:600;">↺ Tentar novamente</a>
+      </div>`;
   }
-
-  // Tenta direto primeiro, depois via proxy CORS
-  const urls = [
-    SHEET_CSV_URL + "&t=" + Date.now(),
-    "https://corsproxy.io/?" + encodeURIComponent(SHEET_CSV_URL + "&t=" + Date.now()),
-    "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_CSV_URL)
-  ];
-
-  for (const url of urls) {
-    try {
-      const resp = await fetch(url, { cache: "no-store" });
-      if (!resp.ok) continue;
-      const text = await resp.text();
-      if (!text || text.trim().length < 10) continue;
-      rotas = parseCSV(text);
-      if (rotas.length === 0) continue;
-      renderLista();
-      setSyncState("ok", "atualizado");
-      const agora = new Date();
-      document.getElementById("ultima-sync").textContent =
-        "Última atualização: " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
-      resetCountdown();
-      return;
-    } catch(e) { continue; }
-  }
-
-  // Tudo falhou
-  setSyncState("erro", "erro");
-  document.getElementById("lista-rotas").innerHTML = `
-    <div class="erro-msg">
-      ⚠️ <b>Não foi possível carregar os dados.</b><br><br>
-      Verifique se:<br>
-      • O link CSV está correto na variável <code>SHEET_CSV_URL</code><br>
-      • A planilha está publicada como <b>CSV público</b> no Google Sheets<br>
-      • (Arquivo → Compartilhar → Publicar na web → aba Rotas → CSV → Publicar)<br><br>
-      <a href="javascript:buscarDados()" style="color:#2d6a4f;font-weight:600;">↺ Tentar novamente</a>
-    </div>`;
 }
 
 function setSyncState(state, txt) {
