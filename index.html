@@ -303,27 +303,52 @@ function parseCSV(text) {
 
 async function buscarDados() {
   setSyncState("loading", "atualizando…");
-  try {
-    const url = SHEET_CSV_URL + "&t=" + Date.now();
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const text = await resp.text();
-    rotas = parseCSV(text);
+
+  if (!SHEET_CSV_URL || SHEET_CSV_URL === "COLE_AQUI_O_LINK_CSV_DO_GOOGLE_SHEETS") {
+    rotas = DADOS_EXEMPLO;
     renderLista();
-    setSyncState("ok", "atualizado");
-    const agora = new Date();
-    document.getElementById("ultima-sync").textContent =
-      "Última atualização: " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
+    setSyncState("ok", "modo demo");
+    document.getElementById("ultima-sync").textContent = "Modo demonstração — cole o link CSV para dados reais";
     resetCountdown();
-  } catch(e) {
-    setSyncState("erro", "erro");
-    document.getElementById("lista-rotas").innerHTML = `
-      <div class="erro-msg">
-        ⚠️ <b>Não foi possível carregar os dados.</b><br><br>
-        Verifique se o link CSV está correto na variável <code>SHEET_CSV_URL</code> e se a planilha está publicada publicamente.<br><br>
-        <a href="javascript:buscarDados()" style="color:#2d6a4f;font-weight:600;">Tentar novamente</a>
-      </div>`;
+    return;
   }
+
+  // Tenta direto primeiro, depois via proxy CORS
+  const urls = [
+    SHEET_CSV_URL + "&t=" + Date.now(),
+    "https://corsproxy.io/?" + encodeURIComponent(SHEET_CSV_URL + "&t=" + Date.now()),
+    "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_CSV_URL)
+  ];
+
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, { cache: "no-store" });
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      if (!text || text.trim().length < 10) continue;
+      rotas = parseCSV(text);
+      if (rotas.length === 0) continue;
+      renderLista();
+      setSyncState("ok", "atualizado");
+      const agora = new Date();
+      document.getElementById("ultima-sync").textContent =
+        "Última atualização: " + String(agora.getHours()).padStart(2,"0") + ":" + String(agora.getMinutes()).padStart(2,"0");
+      resetCountdown();
+      return;
+    } catch(e) { continue; }
+  }
+
+  // Tudo falhou
+  setSyncState("erro", "erro");
+  document.getElementById("lista-rotas").innerHTML = `
+    <div class="erro-msg">
+      ⚠️ <b>Não foi possível carregar os dados.</b><br><br>
+      Verifique se:<br>
+      • O link CSV está correto na variável <code>SHEET_CSV_URL</code><br>
+      • A planilha está publicada como <b>CSV público</b> no Google Sheets<br>
+      • (Arquivo → Compartilhar → Publicar na web → aba Rotas → CSV → Publicar)<br><br>
+      <a href="javascript:buscarDados()" style="color:#2d6a4f;font-weight:600;">↺ Tentar novamente</a>
+    </div>`;
 }
 
 function setSyncState(state, txt) {
@@ -343,6 +368,18 @@ function resetCountdown() {
     document.getElementById("countdown").textContent = m + ":" + s;
   }, 1000);
 }
+
+
+const DADOS_EXEMPLO = [
+  { ponto_apoio:"PA1", codigo_rota:"PA1BD01", tipo:"RSU", motorista:"Diego Henrique Alves", inicio:"07:25", porcentagem:68, velocidade_media_kmh:7.2, tempo_parada_min:22, distancia_km:20.1, coletores:"Carlos Silva, José Mendes, Marcos Lima", observacoes:"" },
+  { ponto_apoio:"PA1", codigo_rota:"PA1RS02", tipo:"RSU", motorista:"Fernando Costa",       inicio:"06:50", porcentagem:100, velocidade_media_kmh:8.5, tempo_parada_min:15, distancia_km:32.0, coletores:"Antônio Jr., Paulo Rocha", observacoes:"" },
+  { ponto_apoio:"PA2", codigo_rota:"PA2SL01", tipo:"SEL", motorista:"Roberto Almeida",      inicio:"07:10", porcentagem:45, velocidade_media_kmh:6.3, tempo_parada_min:38, distancia_km:12.4, coletores:"Luiz Fernando, Sandro Melo", observacoes:"" },
+  { ponto_apoio:"PA2", codigo_rota:"PA2EN01", tipo:"ENT", motorista:"Marcelo Souza",         inicio:"08:00", porcentagem:20, velocidade_media_kmh:15.8, tempo_parada_min:8, distancia_km:9.3, coletores:"Rafael Dias", observacoes:"Remoção extra solicitada" },
+  { ponto_apoio:"PA3", codigo_rota:"PA3SL01", tipo:"SEL", motorista:"André Pereira",         inicio:"07:45", porcentagem:0, velocidade_media_kmh:0, tempo_parada_min:0, distancia_km:0, coletores:"Cícero Lima, Welton Santos", observacoes:"" },
+  { ponto_apoio:"PA3", codigo_rota:"PA3RS01", tipo:"RSU", motorista:"Gilberto Tavares",      inicio:"07:00", porcentagem:82, velocidade_media_kmh:9.1, tempo_parada_min:12, distancia_km:28.7, coletores:"Nilton Cruz, Fábio Reis, Jailson Pinto", observacoes:"" },
+  { ponto_apoio:"PA4", codigo_rota:"PA4RS01", tipo:"RSU", motorista:"Rodrigo Feitosa",       inicio:"07:30", porcentagem:55, velocidade_media_kmh:7.8, tempo_parada_min:18, distancia_km:17.6, coletores:"Benedito Souza, Cleyton Lima", observacoes:"" },
+  { ponto_apoio:"PA4", codigo_rota:"PA4EN01", tipo:"ENT", motorista:"Sérgio Moraes",         inicio:"08:15", porcentagem:10, velocidade_media_kmh:12.0, tempo_parada_min:5, distancia_km:4.2, coletores:"Welington Gomes", observacoes:"" },
+];
 
 renderFiltros();
 buscarDados();
