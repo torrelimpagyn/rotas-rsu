@@ -32,7 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sync-bar span{color:#86efac;font-weight:600}
 
 /* ── RESUMO ── */
-.resumo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 12px 0}
+.resumo{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 12px 0}
 .res-card{background:#fff;border-radius:12px;padding:10px 8px;text-align:center;border-top:3px solid #2d6a4f}
 .res-val{font-size:22px;font-weight:800;line-height:1}
 .res-label{font-size:9px;color:#5a8a6a;margin-top:3px;text-transform:uppercase;letter-spacing:.6px}
@@ -122,7 +122,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="resumo">
   <div class="res-card"><div class="res-val escuro" id="r-total">—</div><div class="res-label">Rotas</div></div>
   <div class="res-card"><div class="res-val verde" id="r-concluidas">—</div><div class="res-label">Concluídas</div></div>
-  <div class="res-card"><div class="res-val medio" id="r-media">—</div><div class="res-label">% média</div></div>
 </div>
 
 <!-- Lista -->
@@ -206,10 +205,7 @@ function renderResumo(lista) {
   document.getElementById("r-total").textContent = lista.length;
   const conc = lista.filter(r => r.porcentagem >= 100).length;
   document.getElementById("r-concluidas").textContent = conc;
-  const media = lista.length
-    ? Math.round(lista.reduce((a,r) => a + r.porcentagem, 0) / lista.length)
-    : 0;
-  document.getElementById("r-media").textContent = media + "%";
+
 }
 
 function renderLista() {
@@ -255,7 +251,7 @@ function renderLista() {
           </div>
           <div class="det-rows">
             <div class="det-row">Motorista: <b>${r.motorista||"—"}</b></div>
-            <div class="det-row">Início: <b>${r.inicio||"—"}</b></div>
+            <div class="det-row">Início: <b>${formatarHora(r.inicio)}</b></div>
             <div class="det-row">Distância percorrida: <b>${Number(r.distancia_km||0).toFixed(1)} km</b></div>
             <div class="det-row">Velocidade Média: <b>${Number(r.velocidade_media_kmh||0).toFixed(1)} km/h</b></div>
             <div class="det-row">Tempo de parada: <b>${r.tempo_parada_min||0} minutos</b></div>
@@ -317,8 +313,13 @@ function parseCSV(text) {
     headers.forEach((h, i) => { obj[h] = (cols[i] || "").trim(); });
     return obj;
   }).filter(r => {
-    const cod = r.codigo_rota || r.codigorota || "";
-    return cod.trim().length > 0;
+    const cod = (r.codigo_rota || r.codigorota || "").trim();
+    // Remove linhas que são labels da planilha (texto literal nos campos)
+    if (!cod || cod.toLowerCase().includes("código") || cod.toLowerCase().includes("codigo") || cod === "Código da Rota") return false;
+    // Remove linha se porcentagem não é número
+    const pct = r.porcentagem !== undefined ? r.porcentagem : r.porcentagem;
+    if (isNaN(Number(pct)) && pct !== "0") return true;
+    return true;
   });
 }
 
@@ -377,6 +378,21 @@ const DADOS_EXEMPLO = [
   { ponto_apoio:"PA4", codigo_rota:"PA4RS01", tipo:"RSU", motorista:"Rodrigo Feitosa",       inicio:"07:30", porcentagem:55, velocidade_media_kmh:7.8, tempo_parada_min:18, distancia_km:17.6, coletores:"Benedito Souza, Cleyton Lima", observacoes:"" },
   { ponto_apoio:"PA4", codigo_rota:"PA4EN01", tipo:"ENT", motorista:"Sérgio Moraes",         inicio:"08:15", porcentagem:10, velocidade_media_kmh:12.0, tempo_parada_min:5, distancia_km:4.2, coletores:"Welington Gomes", observacoes:"" },
 ];
+
+
+function formatarHora(val) {
+  if (!val || val === "—") return "—";
+  const s = val.toString().trim();
+  // Se já está no formato HH:MM ou HH:MM:SS
+  const match = s.match(/(\d{1,2}):(\d{2})/);
+  if (match) return match[1].padStart(2,"0") + ":" + match[2];
+  // Se veio como objeto Date serializado do Sheets (ex: "Sat Dec 30 1899 07:25:00 GMT...")
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+  }
+  return s;
+}
 
 renderFiltros();
 buscarDados();
