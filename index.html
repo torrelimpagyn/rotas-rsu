@@ -150,7 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 // ══════════════════════════════════════════════
 // ▶  CONFIGURAÇÃO — altere apenas aqui
 // ══════════════════════════════════════════════
-const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2hOzLexAFbgVbDgEoVMUvuBeVhfbcQCMitDPFoH9M8P4e0rMriNqwEiRx9Z31u0buZqO4udUkbsAL/pub?gid=0&single=true&output=csv";
+const SHEET_CSV_URL = "COLE_AQUI_O_LINK_CSV_DO_GOOGLE_SHEETS";
 
 const PONTOS = {
   "todos": "Todos",
@@ -282,23 +282,44 @@ function toggle(detId, chevId) {
   if (!isOpen) { det.classList.add("open"); chev.classList.add("open"); }
 }
 
+function splitCSVLine(line) {
+  const cols = [];
+  let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '"') { inQ = !inQ; continue; }
+    if (line[i] === ',' && !inQ) { cols.push(cur.trim()); cur = ""; continue; }
+    cur += line[i];
+  }
+  cols.push(cur.trim());
+  return cols;
+}
+
 function parseCSV(text) {
-  const lines = text.trim().split("\n");
+  const lines = text.trim().split("\n").filter(l => l.trim());
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g,"").toLowerCase());
-  return lines.slice(1).map(line => {
-    const cols = [];
-    let cur = "", inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') { inQ = !inQ; continue; }
-      if (line[i] === ',' && !inQ) { cols.push(cur); cur = ""; continue; }
-      cur += line[i];
+
+  // Encontra automaticamente a linha que contém "codigo_rota" como cabeçalho
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(lines.length, 6); i++) {
+    const normalized = lines[i].toLowerCase().replace(/[" ]/g, "");
+    if (normalized.includes("codigo_rota") || normalized.includes("codigorota")) {
+      headerIdx = i;
+      break;
     }
-    cols.push(cur);
+  }
+
+  const headers = splitCSVLine(lines[headerIdx]).map(h => h.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+  const dataLines = lines.slice(headerIdx + 1);
+
+  return dataLines.map(line => {
+    const cols = splitCSVLine(line);
     const obj = {};
     headers.forEach((h, i) => { obj[h] = (cols[i] || "").trim(); });
     return obj;
-  }).filter(r => r.codigo_rota && r.codigo_rota.trim());
+  }).filter(r => {
+    const cod = r.codigo_rota || r.codigorota || "";
+    return cod.trim().length > 0;
+  });
 }
 
 async function buscarDados() {
