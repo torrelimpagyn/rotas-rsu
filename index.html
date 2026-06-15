@@ -214,7 +214,7 @@ function renderLista() {
     const tipo  = String(r.tipo || "RSU").trim().toUpperCase();
     const vei2  = String(r.veiculo_2 || "").trim();
     const obs   = String(r.observacoes || "").trim();
-    const kmLin = parseFloat(r.km_linear);
+    const kmLin = parseFloat(r.km_original);
     const kmPer = parseFloat(r.distancia_km);
     let difVal = "—", difCls = "muted";
     if (!isNaN(kmLin) && !isNaN(kmPer)) {
@@ -240,14 +240,14 @@ function renderLista() {
             <span class="det-cod-badge">${String(r.codigo_rota||"").trim()}</span>
           </div>
           <div class="det-rows">
-            <div class="det-row"><span class="det-row-label">Início</span><span class="det-row-val">${fmtHora(r.inicio)}</span></div>
+            <div class="det-row"><span class="det-row-label">Entrada no Setor</span><span class="det-row-val">${fmtHora(r.entrada_no_setor)}</span></div>
             <div class="det-row"><span class="det-row-label">Veículo 1</span><span class="det-row-val">${r.veiculo_1||"—"}</span></div>
             ${vei2 ? `<div class="det-row vei2"><span class="det-row-label">Veículo 2 (apoio)</span><span class="det-row-val pos">${vei2}</span></div>` : ""}
-            <div class="det-row"><span class="det-row-label">KM Linear</span><span class="det-row-val">${fmtNum(r.km_linear)} km</span></div>
+            <div class="det-row"><span class="det-row-label">KM Original</span><span class="det-row-val">${fmtNum(r.km_original)} km</span></div>
             <div class="det-row"><span class="det-row-label">Distância percorrida</span><span class="det-row-val">${fmtNum(r.distancia_km)} km</span></div>
             <div class="det-row"><span class="det-row-label">Diferença</span><span class="det-row-val ${difCls}">${difVal}</span></div>
             <div class="det-row"><span class="det-row-label">Velocidade Média</span><span class="det-row-val">${fmtNum(r.velocidade_media_kmh)} km/h</span></div>
-            <div class="det-row"><span class="det-row-label">Tempo de parada</span><span class="det-row-val">${r.tempo_parada_min||0} min</span></div>
+            <div class="det-row"><span class="det-row-label">Tempo de Parada (acima de 10 min)</span><span class="det-row-val">${r.tempo_parada_acima_10min||0} min</span></div>
           </div>
           ${obs ? `<div class="det-obs">📋 ${obs}</div>` : ""}
         </div>
